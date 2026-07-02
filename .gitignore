@@ -1,0 +1,16 @@
+# Secrets — never commit API keys
+.env
+*.env
+!.env.example
+
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Logs
+*.log
+
+# OS/editor noise
+.DS_Store
