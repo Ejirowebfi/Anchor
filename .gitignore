@@ -16,3 +16,4 @@ dist/
 .DS_Store
 Screenshot*.png
 backend/data.json
+backend/stats.json

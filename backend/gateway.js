@@ -25,6 +25,7 @@
 // one-line edit. Embeddings 404 re-confirmed after credits → fallback stands.
 
 import OpenAI from "openai";
+import { recordCheap } from "./stats.js";
 import {
   TAGGER_SYSTEM_PROMPT,
   THREAD_FINDER_SYSTEM_PROMPT,
@@ -52,6 +53,7 @@ export async function tagMessage(text) {
         { role: "user", content: text },
       ],
     });
+    recordCheap(res.usage?.total_tokens ?? 0);
     const raw = res.choices[0].message.content.replace(/```json|```/g, "").trim();
     const parsed = JSON.parse(raw);
     return {
@@ -90,6 +92,7 @@ export async function findThreads(messages) {
         { role: "user", content: messages.map(asLine).join("\n") },
       ],
     });
+    recordCheap(res.usage?.total_tokens ?? 0);
     const byId = new Map(messages.map((m) => [m.id, m]));
     const threads = (parseJson(res).threads || [])
       .map((t) => ({
@@ -131,6 +134,7 @@ export async function trackCommitments(messages) {
       ],
     });
     tokens_used = res.usage?.total_tokens ?? 0;
+    recordCheap(tokens_used);
     for (const r of parseJson(res).results || []) {
       results.set(r.commitment_id, r.kept_evidence_id ?? null);
     }

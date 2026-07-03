@@ -1,8 +1,9 @@
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
-import { tagMessage, buildEvidence, reflectStream } from "./gateway.js";
+import { tagMessage, buildEvidence, reflectStream, evidenceToText } from "./gateway.js";
 import { addMessage, getAll } from "./store.js";
+import { getStats, recordStrong } from "./stats.js";
 
 const app = express();
 app.use(cors());
@@ -42,10 +43,16 @@ app.get("/reflect", async (req, res) => {
     const evidence = await buildEvidence(messages);
     send({ status: "reflecting…" });
     const stream = await reflectStream(evidence);
+    let reflectionText = "";
     for await (const chunk of stream) {
       const delta = chunk.choices?.[0]?.delta?.content;
-      if (delta) send({ token: delta });
+      if (delta) {
+        reflectionText += delta;
+        send({ token: delta });
+      }
     }
+    // Gateway returns no usage on streamed responses — estimate at chars/4.
+    recordStrong(Math.round((evidenceToText(evidence).length + reflectionText.length) / 4));
     send({ done: true });
     res.end();
   } catch (err) {
@@ -55,7 +62,9 @@ app.get("/reflect", async (req, res) => {
   }
 });
 
-// Phase 5: GET /stats
+app.get("/stats", (req, res) => {
+  res.json(getStats());
+});
 
 app.listen(PORT, () => {
   console.log(`Anchor backend listening on http://localhost:${PORT}`);

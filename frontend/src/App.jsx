@@ -1,5 +1,6 @@
 import ChatFeed from "./ChatFeed.jsx";
 import ReflectPanel from "./ReflectPanel.jsx";
+import CostBar from "./CostBar.jsx";
 import "./App.css";
 
 function App() {
@@ -11,6 +12,7 @@ function App() {
       </header>
       <ReflectPanel />
       <ChatFeed />
+      <CostBar />
     </div>
   );
 }

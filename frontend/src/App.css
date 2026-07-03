@@ -153,3 +153,24 @@
 @keyframes blink {
   50% { opacity: 0; }
 }
+
+.costbar {
+  display: flex;
+  justify-content: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+  padding: 0.6rem 0 0.2rem;
+  font-size: 0.78rem;
+  opacity: 0.75;
+  border-top: 1px solid var(--border);
+  margin-top: 0.5rem;
+}
+
+.costbar em {
+  opacity: 0.7;
+  font-style: normal;
+}
+
+.costbar-sep {
+  opacity: 0.4;
+}
