@@ -8,13 +8,17 @@
 // 2. /v1/embeddings: 404 Not found → USE FALLBACK: cheap-model yes/no
 //    similarity judging for thread matching.
 // 3. stream:true: OK — 42 chunks on laguna-xs.2. Real SSE is viable.
-// 4. Models: ~300 listed via /v1/models. Working now: laguna-xs.2.
-//    laguna-m.1 gave 429 (retry later). claude-* routes require /v1/messages
-//    (native Anthropic), not /v1/chat/completions — avoid unless needed.
+// 4. Models: ~300 listed via /v1/models. Working pair chosen:
+//    CHEAP  = laguna-xs.2 (small, fast — tagger)
+//    STRONG = laguna-m.1  (reasoning model: hidden "reasoning" field, answer in
+//             content; needs generous max_tokens or it returns empty — reflector)
+//    claude-* routes require /v1/messages (native Anthropic), not
+//    /v1/chat/completions — avoid unless needed.
 // 5. usage field: PRESENT (prompt/completion/total tokens) → real CostBar numbers.
 //
 // Model pair lives in .env (MODEL_CHEAP / MODEL_STRONG) so upgrading after
-// credits land is a one-line edit. Both point at laguna-xs.2 until then.
+// credits land is a one-line edit. (Re-checked 402s post-kickoff: still no
+// credits on paid models; embeddings 404 across all known embed model names.)
 
 import OpenAI from "openai";
 
