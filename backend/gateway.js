@@ -25,8 +25,41 @@
 // one-line edit. Embeddings 404 re-confirmed after credits → fallback stands.
 
 import OpenAI from "openai";
+import { TAGGER_SYSTEM_PROMPT } from "./prompts.js";
 
 export const client = new OpenAI({
   baseURL: process.env.BTL_BASE_URL,
   apiKey: process.env.BTL_API_KEY,
 });
+
+const FALLBACK_TAGS = { topic: "general", mood: "neutral", is_commitment: false, commitment_text: null };
+
+// Cheap model tags every message. A bad tag must never crash the app:
+// any failure (network, refusal, malformed JSON) falls back to neutral tags.
+export async function tagMessage(text) {
+  try {
+    const res = await client.chat.completions.create({
+      model: process.env.MODEL_CHEAP,
+      temperature: 0,
+      max_tokens: 120,
+      messages: [
+        { role: "system", content: TAGGER_SYSTEM_PROMPT },
+        { role: "user", content: text },
+      ],
+    });
+    const raw = res.choices[0].message.content.replace(/```json|```/g, "").trim();
+    const parsed = JSON.parse(raw);
+    return {
+      tags: {
+        topic: String(parsed.topic ?? "general").toLowerCase(),
+        mood: String(parsed.mood ?? "neutral").toLowerCase(),
+        is_commitment: parsed.is_commitment === true,
+        commitment_text: parsed.is_commitment === true ? parsed.commitment_text ?? null : null,
+      },
+      tokens_used: res.usage?.total_tokens ?? 0,
+    };
+  } catch (err) {
+    console.error("tagMessage fallback:", err.message);
+    return { tags: { ...FALLBACK_TAGS }, tokens_used: 0 };
+  }
+}
