@@ -5,8 +5,11 @@
 // 1. Chat round-trip: OK on laguna-xs.2 ("pong"). Most models return 402
 //    "workspace balance too low" — free credits not yet applied to the key;
 //    asked in event Discord. No ":free" routes exist (400 no provider route).
-// 2. /v1/embeddings: 404 Not found → USE FALLBACK: cheap-model yes/no
-//    similarity judging for thread matching.
+// 2. /v1/embeddings: 404 (gateway_not_found; no embedding models in catalog).
+//    CONFIRMED by organizers in Discord: embeddings route not enabled for the
+//    event; chat/completions + responses are the supported paths.
+//    → FALLBACK IS THE PLAN: cheap model groups related messages (batched
+//    grouping call) for thread matching + commitment follow-through.
 // 3. stream:true: OK — 42 chunks on laguna-xs.2. Real SSE is viable.
 // 4. Models: ~300 listed via /v1/models. Credits landed ~19:30 Abuja; pair
 //    chosen after head-to-head probes:
