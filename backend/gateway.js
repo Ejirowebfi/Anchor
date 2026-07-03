@@ -29,6 +29,7 @@ import {
   TAGGER_SYSTEM_PROMPT,
   THREAD_FINDER_SYSTEM_PROMPT,
   COMMITMENT_TRACKER_SYSTEM_PROMPT,
+  REFLECTOR_SYSTEM_PROMPT,
 } from "./prompts.js";
 
 export const client = new OpenAI({
@@ -155,4 +156,67 @@ export async function trackCommitments(messages) {
     };
   });
   return { commitments: report, tokens_used };
+}
+
+// Pre-chewed evidence for the reflector: threads + commitment report + mood
+// tally. Never dump raw history on the strong model.
+export async function buildEvidence(messages) {
+  const [threadRes, commitRes] = await Promise.all([
+    findThreads(messages),
+    trackCommitments(messages),
+  ]);
+  const moods = {};
+  for (const m of messages) {
+    const mood = m.tags?.mood || "neutral";
+    moods[mood] = (moods[mood] || 0) + 1;
+  }
+  const stamps = messages.map((m) => new Date(m.timestamp).getTime());
+  const days = messages.length
+    ? Math.max(1, Math.round((Math.max(...stamps) - Math.min(...stamps)) / 86400000))
+    : 0;
+  return {
+    threads: threadRes.threads,
+    commitments: commitRes.commitments,
+    moods,
+    days,
+    count: messages.length,
+    tokens_used: threadRes.tokens_used + commitRes.tokens_used,
+  };
+}
+
+export function evidenceToText(ev) {
+  const lines = [`JOURNAL: ${ev.count} messages over ${ev.days} days.`, "", "RECURRING THREADS:"];
+  if (!ev.threads.length) lines.push("(none found)");
+  for (const t of ev.threads) {
+    lines.push(`▶ ${t.label} (${t.messages.length} messages)`);
+    for (const m of t.messages) lines.push(`  - ${m.timestamp.slice(0, 10)}: "${m.text}"`);
+  }
+  lines.push("", "COMMITMENTS:");
+  if (!ev.commitments.length) lines.push("(none detected)");
+  for (const c of ev.commitments) {
+    lines.push(
+      `- ${c.date} "${c.commitment}" → ${c.status}` +
+        (c.evidence ? ` (they later said: "${c.evidence.text}")` : "")
+    );
+  }
+  const tally = Object.entries(ev.moods)
+    .sort((a, b) => b[1] - a[1])
+    .map(([m, n]) => `${m} x${n}`)
+    .join(", ");
+  lines.push("", `MOOD TALLY: ${tally}`);
+  return lines.join("\n");
+}
+
+// Strong model, stream on — runs ONLY on demand.
+export function reflectStream(evidence) {
+  return client.chat.completions.create({
+    model: process.env.MODEL_STRONG,
+    stream: true,
+    stream_options: { include_usage: true },
+    max_tokens: 600,
+    messages: [
+      { role: "system", content: REFLECTOR_SYSTEM_PROMPT },
+      { role: "user", content: evidenceToText(evidence) },
+    ],
+  });
 }
