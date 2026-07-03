@@ -114,3 +114,42 @@
   text-align: center;
   margin: 0.25rem 0;
 }
+
+.reflect {
+  margin-bottom: 0.75rem;
+  text-align: center;
+}
+
+.reflect-btn {
+  padding: 0.55rem 1.6rem;
+  border-radius: 999px;
+  font-weight: 600;
+  background: rgba(80, 140, 255, 0.15);
+  border-color: rgba(80, 140, 255, 0.45);
+}
+
+.reflect-status {
+  opacity: 0.6;
+  font-size: 0.85rem;
+  margin: 0.6rem 0 0;
+}
+
+.reflection {
+  text-align: left;
+  background: rgba(80, 140, 255, 0.08);
+  border: 1px solid rgba(80, 140, 255, 0.3);
+  border-radius: 12px;
+  padding: 0.9rem 1.1rem;
+  margin-top: 0.75rem;
+  line-height: 1.55;
+  white-space: pre-wrap;
+}
+
+.cursor {
+  animation: blink 0.8s steps(1) infinite;
+  opacity: 0.7;
+}
+
+@keyframes blink {
+  50% { opacity: 0; }
+}

@@ -1,7 +1,7 @@
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
-import { tagMessage } from "./gateway.js";
+import { tagMessage, buildEvidence, reflectStream } from "./gateway.js";
 import { addMessage, getAll } from "./store.js";
 
 const app = express();
@@ -26,7 +26,36 @@ app.post("/message", async (req, res) => {
   res.json(message);
 });
 
-// Phase 4+: GET /reflect (SSE), GET /stats
+app.get("/reflect", async (req, res) => {
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  res.flushHeaders();
+  const send = (data) => res.write(`data: ${JSON.stringify(data)}\n\n`);
+  try {
+    const messages = getAll();
+    if (messages.length < 3) {
+      send({ error: "not enough messages yet — tell me a few more things first" });
+      return res.end();
+    }
+    send({ status: "reading your whole history…" });
+    const evidence = await buildEvidence(messages);
+    send({ status: "reflecting…" });
+    const stream = await reflectStream(evidence);
+    for await (const chunk of stream) {
+      const delta = chunk.choices?.[0]?.delta?.content;
+      if (delta) send({ token: delta });
+    }
+    send({ done: true });
+    res.end();
+  } catch (err) {
+    console.error("reflect error:", err.message);
+    send({ error: "reflection failed — try again in a moment" });
+    res.end();
+  }
+});
+
+// Phase 5: GET /stats
 
 app.listen(PORT, () => {
   console.log(`Anchor backend listening on http://localhost:${PORT}`);
