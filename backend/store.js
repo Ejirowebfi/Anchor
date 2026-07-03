@@ -22,11 +22,11 @@ function save() {
   fs.writeFileSync(DATA_FILE, JSON.stringify(messages, null, 2));
 }
 
-export function addMessage({ text, tags, tokens_used = 0 }) {
+export function addMessage({ text, tags, tokens_used = 0, timestamp }) {
   const message = {
     id: messages.length ? messages[messages.length - 1].id + 1 : 1,
     text,
-    timestamp: new Date().toISOString(),
+    timestamp: timestamp || new Date().toISOString(),
     tags,
     tokens_used,
   };

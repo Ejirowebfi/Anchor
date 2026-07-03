@@ -25,7 +25,11 @@
 // one-line edit. Embeddings 404 re-confirmed after credits → fallback stands.
 
 import OpenAI from "openai";
-import { TAGGER_SYSTEM_PROMPT } from "./prompts.js";
+import {
+  TAGGER_SYSTEM_PROMPT,
+  THREAD_FINDER_SYSTEM_PROMPT,
+  COMMITMENT_TRACKER_SYSTEM_PROMPT,
+} from "./prompts.js";
 
 export const client = new OpenAI({
   baseURL: process.env.BTL_BASE_URL,
@@ -62,4 +66,93 @@ export async function tagMessage(text) {
     console.error("tagMessage fallback:", err.message);
     return { tags: { ...FALLBACK_TAGS }, tokens_used: 0 };
   }
+}
+
+function parseJson(res) {
+  const raw = res.choices[0].message.content.replace(/```json|```/g, "").trim();
+  return JSON.parse(raw);
+}
+
+const asLine = (m) => `${m.id} | ${m.timestamp.slice(0, 10)} | ${m.text}`;
+
+// Embeddings replacement (gateway has no /v1/embeddings — see battery notes):
+// one batched cheap-model call groups related messages into threads.
+export async function findThreads(messages) {
+  if (messages.length < 2) return { threads: [], tokens_used: 0 };
+  try {
+    const res = await client.chat.completions.create({
+      model: process.env.MODEL_CHEAP,
+      temperature: 0,
+      max_tokens: 800,
+      messages: [
+        { role: "system", content: THREAD_FINDER_SYSTEM_PROMPT },
+        { role: "user", content: messages.map(asLine).join("\n") },
+      ],
+    });
+    const byId = new Map(messages.map((m) => [m.id, m]));
+    const threads = (parseJson(res).threads || [])
+      .map((t) => ({
+        label: String(t.label || "untitled"),
+        messages: (t.message_ids || []).map((id) => byId.get(id)).filter(Boolean),
+      }))
+      .filter((t) => t.messages.length >= 2)
+      .sort((a, b) => b.messages.length - a.messages.length);
+    return { threads, tokens_used: res.usage?.total_tokens ?? 0 };
+  } catch (err) {
+    console.error("findThreads fallback:", err.message);
+    return { threads: [], tokens_used: 0 };
+  }
+}
+
+const FOLLOWUP_DAYS = Number(process.env.FOLLOWUP_DAYS || 3);
+
+// For every message tagged as a commitment, check later messages for a
+// follow-through report. Status: "kept" / "open" (recent) / "no follow-up after N days".
+export async function trackCommitments(messages) {
+  const commitments = messages.filter((m) => m.tags?.is_commitment);
+  if (!commitments.length) return { commitments: [], tokens_used: 0 };
+
+  let results = new Map(); // commitment id -> evidence id or null
+  let tokens_used = 0;
+  try {
+    const res = await client.chat.completions.create({
+      model: process.env.MODEL_CHEAP,
+      temperature: 0,
+      max_tokens: 600,
+      messages: [
+        { role: "system", content: COMMITMENT_TRACKER_SYSTEM_PROMPT },
+        {
+          role: "user",
+          content:
+            `COMMITMENTS:\n${commitments.map(asLine).join("\n")}\n\n` +
+            `ALL MESSAGES:\n${messages.map(asLine).join("\n")}`,
+        },
+      ],
+    });
+    tokens_used = res.usage?.total_tokens ?? 0;
+    for (const r of parseJson(res).results || []) {
+      results.set(r.commitment_id, r.kept_evidence_id ?? null);
+    }
+  } catch (err) {
+    console.error("trackCommitments fallback (statuses by age only):", err.message);
+  }
+
+  const byId = new Map(messages.map((m) => [m.id, m]));
+  const report = commitments.map((c) => {
+    const evidenceId = results.get(c.id) ?? null;
+    const evidence = evidenceId != null ? byId.get(evidenceId) : null;
+    const days = Math.floor((Date.now() - new Date(c.timestamp)) / 86400000);
+    let status;
+    if (evidence) status = "kept";
+    else if (days >= FOLLOWUP_DAYS) status = `no follow-up after ${days} days`;
+    else status = "open";
+    return {
+      id: c.id,
+      date: c.timestamp.slice(0, 10),
+      commitment: c.tags.commitment_text || c.text,
+      status,
+      evidence: evidence ? { id: evidence.id, text: evidence.text } : null,
+    };
+  });
+  return { commitments: report, tokens_used };
 }
