@@ -8,17 +8,18 @@
 // 2. /v1/embeddings: 404 Not found → USE FALLBACK: cheap-model yes/no
 //    similarity judging for thread matching.
 // 3. stream:true: OK — 42 chunks on laguna-xs.2. Real SSE is viable.
-// 4. Models: ~300 listed via /v1/models. Working pair chosen:
-//    CHEAP  = laguna-xs.2 (small, fast — tagger)
-//    STRONG = laguna-m.1  (reasoning model: hidden "reasoning" field, answer in
-//             content; needs generous max_tokens or it returns empty — reflector)
-//    claude-* routes require /v1/messages (native Anthropic), not
-//    /v1/chat/completions — avoid unless needed.
+// 4. Models: ~300 listed via /v1/models. Credits landed ~19:30 Abuja; pair
+//    chosen after head-to-head probes:
+//    CHEAP  = gpt-4o-mini (3.6s, only candidate to tag topic correctly)
+//    STRONG = gpt-5.1     (5s, best reflection quality; kimi 19s, gemini slow)
+//    Notes: reasoning models (gpt-5-nano, laguna-m.1) return empty content on
+//    small max_tokens — avoid for tagging. claude-* routes require /v1/messages,
+//    not /v1/chat/completions. Pre-credit fallback pair that also works:
+//    laguna-xs.2 / laguna-m.1.
 // 5. usage field: PRESENT (prompt/completion/total tokens) → real CostBar numbers.
 //
-// Model pair lives in .env (MODEL_CHEAP / MODEL_STRONG) so upgrading after
-// credits land is a one-line edit. (Re-checked 402s post-kickoff: still no
-// credits on paid models; embeddings 404 across all known embed model names.)
+// Model pair lives in .env (MODEL_CHEAP / MODEL_STRONG); swapping is a
+// one-line edit. Embeddings 404 re-confirmed after credits → fallback stands.
 
 import OpenAI from "openai";
 
