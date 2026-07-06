@@ -56,17 +56,29 @@ app.get("/reflect", async (req, res) => {
     send({ status: "reading your whole history…" });
     const evidence = await buildEvidence(messages);
     send({ status: "reflecting…" });
+    // Structured JSON can't stream to the client mid-parse: accumulate the
+    // gateway stream server-side, parse, send whole; client reveals word-by-word.
     const stream = await reflectStream(evidence);
-    let reflectionText = "";
+    let raw = "";
     for await (const chunk of stream) {
-      const delta = chunk.choices?.[0]?.delta?.content;
-      if (delta) {
-        reflectionText += delta;
-        send({ token: delta });
-      }
+      raw += chunk.choices?.[0]?.delta?.content || "";
     }
     // Gateway returns no usage on streamed responses — estimate at chars/4.
-    recordStrong(Math.round((evidenceToText(evidence).length + reflectionText.length) / 4));
+    recordStrong(Math.round((evidenceToText(evidence).length + raw.length) / 4));
+    let reflection;
+    try {
+      const cleaned = raw.replace(/```json|```/g, "").trim();
+      const jsonSlice = cleaned
+        .slice(cleaned.indexOf("{"), cleaned.lastIndexOf("}") + 1)
+        .replace(/,\s*([\]}])/g, "$1"); // trailing commas
+      reflection = JSON.parse(jsonSlice);
+      if (!Array.isArray(reflection.sections)) throw new Error("no sections array");
+    } catch (err) {
+      // Bad JSON must never break the demo: show the prose without citations.
+      console.error("reflection JSON fallback:", err.message, "| raw head:", raw.slice(0, 120));
+      reflection = { sections: [{ claim: raw.trim(), evidence_ids: [] }], suggestion: null, question: null, honesty_note: null };
+    }
+    send({ reflection });
     send({ done: true });
     res.end();
   } catch (err) {

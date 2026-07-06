@@ -254,3 +254,51 @@
   0% { background: rgba(80, 200, 120, 0.35); }
   100% { background: transparent; }
 }
+
+.refl-block {
+  margin-bottom: 0.7rem;
+}
+
+.refl-block:last-child {
+  margin-bottom: 0;
+}
+
+.claim-text {
+  cursor: pointer;
+}
+
+.claim-text:hover {
+  text-decoration: underline dotted;
+}
+
+.receipt-hint {
+  font-size: 0.75rem;
+  opacity: 0.7;
+}
+
+.receipts {
+  list-style: none;
+  margin: 0.4rem 0 0;
+  padding: 0.5rem 0.7rem;
+  border-left: 3px solid rgba(80, 140, 255, 0.5);
+  background: rgba(80, 140, 255, 0.07);
+  border-radius: 0 8px 8px 0;
+  font-size: 0.83rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.receipt-date {
+  opacity: 0.6;
+  font-size: 0.75rem;
+}
+
+.refl-block.question {
+  font-style: italic;
+}
+
+.refl-block.note {
+  opacity: 0.65;
+  font-size: 0.85rem;
+}

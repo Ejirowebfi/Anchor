@@ -26,6 +26,7 @@
 
 import OpenAI from "openai";
 import { recordCheap } from "./stats.js";
+import { getLedger } from "./patterns.js";
 import {
   TAGGER_SYSTEM_PROMPT,
   THREAD_FINDER_SYSTEM_PROMPT,
@@ -166,10 +167,9 @@ export async function trackCommitments(messages) {
 // Pre-chewed evidence for the reflector: threads + commitment report + mood
 // tally. Never dump raw history on the strong model.
 export async function buildEvidence(messages) {
-  const [threadRes, commitRes] = await Promise.all([
-    findThreads(messages),
-    trackCommitments(messages),
-  ]);
+  // Threads need one cheap call; commitments come free from the live ledger.
+  const threadRes = await findThreads(messages);
+  const { entries: ledgerEntries, said, did } = getLedger();
   const moods = {};
   for (const m of messages) {
     const mood = m.tags?.mood || "neutral";
@@ -179,13 +179,15 @@ export async function buildEvidence(messages) {
   const days = messages.length
     ? Math.max(1, Math.round((Math.max(...stamps) - Math.min(...stamps)) / 86400000))
     : 0;
+  const byId = new Map(messages.map((m) => [m.id, m]));
   return {
     threads: threadRes.threads,
-    commitments: commitRes.commitments,
+    ledger: { said, did, entries: ledgerEntries },
+    byId,
     moods,
     days,
     count: messages.length,
-    tokens_used: threadRes.tokens_used + commitRes.tokens_used,
+    tokens_used: threadRes.tokens_used,
   };
 }
 
@@ -194,14 +196,15 @@ export function evidenceToText(ev) {
   if (!ev.threads.length) lines.push("(none found)");
   for (const t of ev.threads) {
     lines.push(`▶ ${t.label} (${t.messages.length} messages)`);
-    for (const m of t.messages) lines.push(`  - ${m.timestamp.slice(0, 10)}: "${m.text}"`);
+    for (const m of t.messages) lines.push(`  - [${m.id}] ${m.timestamp.slice(0, 10)}: "${m.text}"`);
   }
-  lines.push("", "COMMITMENTS:");
-  if (!ev.commitments.length) lines.push("(none detected)");
-  for (const c of ev.commitments) {
+  lines.push("", `COMMITMENT LEDGER: said ${ev.ledger.said} · did ${ev.ledger.did}`);
+  for (const c of ev.ledger.entries) {
+    const ev_msg = c.kept_evidence_message_id != null ? ev.byId.get(c.kept_evidence_message_id) : null;
     lines.push(
-      `- ${c.date} "${c.commitment}" → ${c.status}` +
-        (c.evidence ? ` (they later said: "${c.evidence.text}")` : "")
+      `- [${c.source_message_id}] ${c.made_at.slice(0, 10)} "${c.text}" → ${c.status}` +
+        (c.status !== "kept" ? ` (${c.days_ago} days ago)` : "") +
+        (ev_msg ? ` (kept — they later said [${ev_msg.id}]: "${ev_msg.text}")` : "")
     );
   }
   const tally = Object.entries(ev.moods)
@@ -218,7 +221,7 @@ export function reflectStream(evidence) {
     model: process.env.MODEL_STRONG,
     stream: true,
     stream_options: { include_usage: true },
-    max_tokens: 600,
+    max_tokens: 2500,
     messages: [
       { role: "system", content: REFLECTOR_SYSTEM_PROMPT },
       { role: "user", content: evidenceToText(evidence) },
