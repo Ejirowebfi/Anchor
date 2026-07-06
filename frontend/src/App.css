@@ -174,3 +174,83 @@
 .costbar-sep {
   opacity: 0.4;
 }
+
+.ledger {
+  background: rgba(128, 128, 128, 0.07);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 0.8rem 1rem;
+  margin-bottom: 0.9rem;
+}
+
+.ledger-score {
+  text-align: center;
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--text-h);
+  margin-bottom: 0.55rem;
+}
+
+.ledger-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.ledger-row {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  transition: background 0.4s;
+  border-radius: 6px;
+  padding: 0.15rem 0.3rem;
+}
+
+.ledger-text {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ledger-age {
+  opacity: 0.55;
+  font-size: 0.75rem;
+  flex-shrink: 0;
+}
+
+.badge {
+  font-size: 0.7rem;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  flex-shrink: 0;
+  border: 1px solid transparent;
+}
+
+.badge.open {
+  background: rgba(128, 128, 128, 0.15);
+  border-color: rgba(128, 128, 128, 0.35);
+}
+
+.badge.drifting {
+  background: rgba(255, 180, 60, 0.18);
+  border-color: rgba(255, 180, 60, 0.5);
+}
+
+.badge.kept {
+  background: rgba(80, 200, 120, 0.18);
+  border-color: rgba(80, 200, 120, 0.5);
+}
+
+.just-kept {
+  animation: kept-pulse 1.2s ease-out 2;
+}
+
+@keyframes kept-pulse {
+  0% { background: rgba(80, 200, 120, 0.35); }
+  100% { background: transparent; }
+}

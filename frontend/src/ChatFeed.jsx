@@ -33,8 +33,9 @@ export default function ChatFeed() {
         body: JSON.stringify({ text: trimmed }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const saved = await res.json();
-      setMessages((m) => [...m, saved]);
+      const data = await res.json();
+      setMessages((m) => [...m, data.message]);
+      window.dispatchEvent(new CustomEvent("anchor:ledger", { detail: data.ledger_flip }));
       setText("");
     } catch (err) {
       setError(`send failed: ${err.message}`);

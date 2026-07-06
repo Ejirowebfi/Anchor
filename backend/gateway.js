@@ -30,6 +30,7 @@ import {
   TAGGER_SYSTEM_PROMPT,
   THREAD_FINDER_SYSTEM_PROMPT,
   COMMITMENT_TRACKER_SYSTEM_PROMPT,
+  FOLLOWTHROUGH_CHECK_SYSTEM_PROMPT,
   REFLECTOR_SYSTEM_PROMPT,
 } from "./prompts.js";
 
@@ -223,4 +224,32 @@ export function reflectStream(evidence) {
       { role: "user", content: evidenceToText(evidence) },
     ],
   });
+}
+
+// Live ledger check: does this new message report doing one of the open
+// commitments? One cheap yes/no call per incoming non-commitment message.
+export async function checkFollowThrough(openCommitments, text) {
+  if (!openCommitments.length) return null;
+  try {
+    const res = await client.chat.completions.create({
+      model: process.env.MODEL_CHEAP,
+      temperature: 0,
+      max_tokens: 60,
+      messages: [
+        { role: "system", content: FOLLOWTHROUGH_CHECK_SYSTEM_PROMPT },
+        {
+          role: "user",
+          content:
+            `OPEN COMMITMENTS:\n${openCommitments.map((c) => `${c.id} | ${c.text}`).join("\n")}\n\n` +
+            `NEW MESSAGE: ${text}`,
+        },
+      ],
+    });
+    recordCheap(res.usage?.total_tokens ?? 0);
+    const id = parseJson(res).kept_commitment_id;
+    return typeof id === "number" ? id : null;
+  } catch (err) {
+    console.error("checkFollowThrough fallback (no flip):", err.message);
+    return null;
+  }
 }

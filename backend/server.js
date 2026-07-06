@@ -1,9 +1,10 @@
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
-import { tagMessage, buildEvidence, reflectStream, evidenceToText } from "./gateway.js";
+import { tagMessage, buildEvidence, reflectStream, evidenceToText, checkFollowThrough } from "./gateway.js";
 import { addMessage, getAll } from "./store.js";
 import { getStats, recordStrong } from "./stats.js";
+import { addCommitment, openEntries, markKept, getLedger } from "./patterns.js";
 
 const app = express();
 app.use(cors());
@@ -24,7 +25,20 @@ app.post("/message", async (req, res) => {
   if (!text) return res.status(400).json({ error: "text is required" });
   const { tags, tokens_used } = await tagMessage(text);
   const message = addMessage({ text, tags, tokens_used });
-  res.json(message);
+
+  // Ledger engine: a commitment opens an entry; anything else might close one.
+  let ledger_flip = null;
+  if (tags.is_commitment) {
+    addCommitment(message);
+  } else {
+    const keptId = await checkFollowThrough(openEntries(), text);
+    if (keptId != null) ledger_flip = markKept(keptId, message.id);
+  }
+  res.json({ message, ledger_flip });
+});
+
+app.get("/ledger", (req, res) => {
+  res.json(getLedger());
 });
 
 app.get("/reflect", async (req, res) => {

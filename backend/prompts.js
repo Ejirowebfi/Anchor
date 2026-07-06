@@ -10,6 +10,10 @@ Typical journals contain 3-6 such threads. Respond ONLY with JSON:
 {"threads": [{"label": "<two-four words>", "message_ids": [..]}]}
 Rules: a message belongs to at most one thread; 2+ messages per thread; specific labels ("starting the gym"), not vague ones ("life"); leave one-off messages out.`;
 
+export const FOLLOWTHROUGH_CHECK_SYSTEM_PROMPT = `You check whether a new journal message reports following through on one of the person's open commitments. Input: OPEN COMMITMENTS (one per line: "id | promise") and the NEW MESSAGE.
+Follow-through means the message reports actually DOING the promised thing (completed, past tense). Re-promising it, planning it, or reporting skipping it is NOT follow-through.
+Respond ONLY with JSON, no other text: {"kept_commitment_id": <id or null>}`;
+
 export const COMMITMENT_TRACKER_SYSTEM_PROMPT = `You check whether journal commitments were followed through. You receive a list of COMMITMENTS and a list of ALL MESSAGES, one per line: "id | date | text".
 A commitment counts as followed through ONLY if a LATER message reports actually doing the thing. Re-promising it, or reporting skipping it, is NOT follow-through.
 Respond ONLY with JSON, no other text:
