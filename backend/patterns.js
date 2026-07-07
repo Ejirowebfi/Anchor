@@ -64,3 +64,26 @@ export function resetLedger(newEntries) {
   entries = newEntries;
   save();
 }
+
+// Silence detection (v2 Section 7D, pure math): threads that were active
+// (3+ messages) whose last message is older than SILENCE_DAYS.
+const SILENCE_DAYS = Number(process.env.SILENCE_DAYS || 14);
+
+export function findSilences(threads) {
+  const now = Date.now();
+  return threads
+    .filter((t) => t.messages.length >= 3)
+    .map((t) => {
+      const last = t.messages.reduce((a, b) =>
+        new Date(a.timestamp) > new Date(b.timestamp) ? a : b
+      );
+      return {
+        label: t.label,
+        count: t.messages.length,
+        last_date: last.timestamp.slice(0, 10),
+        days_quiet: Math.floor((now - new Date(last.timestamp)) / 86400000),
+        message_ids: t.messages.map((m) => m.id),
+      };
+    })
+    .filter((s) => s.days_quiet >= SILENCE_DAYS);
+}

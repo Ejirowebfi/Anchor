@@ -12,6 +12,10 @@ const daysAgo = (d) => new Date(Date.now() - d * 86400000).toISOString();
 
 // [days ago, text]
 const SEED = [
+  // the silence thread: active early, then never mentioned again
+  [20, "that app idea for tracking spare parts keeps living in my head rent free"],
+  [17, "sketched some screens for the spare-parts app during lunch, this could be something"],
+  [15, "told Tunde about the spare-parts app, he thinks it could actually work"],
   [13, "work is drowning me, three deadlines this week"],
   [13, "I'll start gym on Monday, for real this time"],
   [12, "so tired, slept like 4 hours"],

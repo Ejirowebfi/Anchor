@@ -26,7 +26,7 @@
 
 import OpenAI from "openai";
 import { recordCheap } from "./stats.js";
-import { getLedger } from "./patterns.js";
+import { getLedger, findSilences } from "./patterns.js";
 import {
   TAGGER_SYSTEM_PROMPT,
   THREAD_FINDER_SYSTEM_PROMPT,
@@ -182,6 +182,7 @@ export async function buildEvidence(messages) {
   const byId = new Map(messages.map((m) => [m.id, m]));
   return {
     threads: threadRes.threads,
+    silences: findSilences(threadRes.threads),
     ledger: { said, did, entries: ledgerEntries },
     byId,
     moods,
@@ -197,6 +198,13 @@ export function evidenceToText(ev) {
   for (const t of ev.threads) {
     lines.push(`▶ ${t.label} (${t.messages.length} messages)`);
     for (const m of t.messages) lines.push(`  - [${m.id}] ${m.timestamp.slice(0, 10)}: "${m.text}"`);
+  }
+  lines.push("", "THREADS GONE SILENT:");
+  if (!ev.silences.length) lines.push("(none)");
+  for (const s of ev.silences) {
+    lines.push(
+      `- "${s.label}" [ids ${s.message_ids.join(", ")}] — ${s.count} messages, last on ${s.last_date}, quiet for ${s.days_quiet} days`
+    );
   }
   lines.push("", `COMMITMENT LEDGER: said ${ev.ledger.said} · did ${ev.ledger.did}`);
   for (const c of ev.ledger.entries) {
