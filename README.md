@@ -1,121 +1,85 @@
 # Anchor
 
-**An agent that actually remembers what you tell it.**
+**The first app that tracks the gap between your words and your actions — and shows you the receipts.**
 
-*"It remembers what you're avoiding."*
+*Your journal knows what you said. Your tracker knows what you did. Anchor knows the difference.*
 
-🚧 **Status:** being built for the **BTL Runtime Hackathon** (Bad Theory Labs, July 3–5, 2026). Demo GIF, live URL, and run instructions land at submission.
+> "It remembers what you're avoiding."
 
----
+Built for the **BTL Runtime Hackathon** (July 2026). A thinking companion, not therapy.
+
+![Anchor demo — reflection with tappable receipts](docs/demo.gif)
 
 ## The problem
 
-Every AI chatbot forgets you between conversations. Your notes app remembers everything but notices nothing. Neither will ever tell you that you've promised to start going to the gym three separate times in two weeks and never mentioned it again.
-
-Anchor sits in the middle: you text it in short bursts through the day — thoughts, worries, plans, complaints — and it quietly pays attention. When you ask for a **reflection**, it searches your entire history for recurring patterns, especially **commitments you keep making and never following through on**, and streams back a short, specific, evidence-based reflection.
-
-Not a chatbot. Not a notes app. Anchor pays attention.
+Every AI chatbot forgets you between conversations, and your notes app remembers everything but notices nothing. Meanwhile the most important data you produce every day — the promises you make to yourself in passing — evaporates. Anchor catches those promises from natural language, watches whether your own later words ever report follow-through, and tells you the truth about the gap, with citations.
 
 ## How it works
 
-Three AI operations over one growing message log:
-
 ```
-you type a message
+you text it freely
       │
       ▼
-┌─────────────┐   cheap model, every message
-│  1. TAGGER  │   → topic, mood, is_commitment
-└─────────────┘
+┌──────────────┐  cheap model, every message
+│    TAGGER    │  topic · mood · is-commitment
+└──────────────┘
       │
       ▼
-┌─────────────┐   gateway embeddings, every message
-│ 2. THREADS  │   → cosine similarity groups related messages
-└─────────────┘   → 3+ similar messages = a recurring pattern
+┌──────────────┐  the scoreboard: "Said 4 · Did 1"
+│    LEDGER    │  every promise stays open until your own words
+└──────────────┘  close it (kept) or silence closes it (drifting)
+      │
+      ▼
+┌──────────────┐  pure math: threads that went quiet ≥14 days
+│   SILENCES   │  "3 weeks quiet on the app idea — dropped, or resolved?"
+└──────────────┘
       │
       ▼  (only when you hit Reflect)
-┌─────────────┐   strong model, on demand
-│ 3. REFLECTOR│   → receives pre-built evidence (threads, commitment
-└─────────────┘     report, mood tally), streams back a reflection
+┌──────────────┐  strong model, on demand, streamed
+│  REFLECTOR   │  every claim cites the exact source messages —
+└──────────────┘  tap a claim, see the receipts
 ```
 
-1. **Tagger** — the cheapest model available tags every incoming message with a topic, a mood, and whether it contains a commitment ("I'll start Monday"). Temperature 0, JSON-only, with a safe fallback so a bad tag can never crash the app.
-2. **Thread-Finder** — no prompt at all: every message gets an embedding, and at reflection time cosine similarity groups related messages into threads. Three or more similar messages worded differently ("gym tomorrow", "gotta work out", "skipped the gym again") form one recurring pattern — embeddings get the credit, not word-matching.
-3. **Reflector** — the strongest model available runs *only on demand*. The backend builds pre-chewed evidence first (top threads with dates, a commitment follow-through report, mood counts) rather than dumping raw history. The response streams live to the browser via Server-Sent Events.
-
-**Commitment tracking:** every message tagged as a commitment is checked against later messages (by embedding similarity) for follow-through. Each commitment ends up `open`, `kept`, or `no follow-up after N days` — the repeated-broken-commitment catch is the heart of the product.
-
-## Data model
-
-No database. Every message is one object in an in-memory array, persisted to a JSON file:
-
-```js
-{
-  id: 17,
-  text: "skipped the gym again, whatever",
-  timestamp: "2026-07-04T09:12:00Z",
-  tags: {
-    topic: "health",
-    mood: "resigned",
-    is_commitment: false,
-    commitment_text: null
-  },
-  embedding: [/* float array from gateway embeddings */],
-  tokens_used: 84
-}
-```
-
-The whole product = an array of these + the three AI operations above.
-
-## Stack
-
-Deliberately boring:
-
-- **Frontend:** React + Vite (JavaScript), one page — chat feed with live tag chips, a Reflect panel with streaming output, and a cost bar
-- **Backend:** Node.js + Express (~200–300 lines)
-- **Storage:** in-memory array + JSON file on disk — no database
-- **AI:** all LLM calls go through the **BTL runtime** (an OpenAI-compatible gateway) via the official `openai` npm package
-- **Streaming:** Server-Sent Events
-
-```
-anchor/
-├── backend/
-│   ├── server.js      # Express routes: /message, /reflect (SSE), /stats, /ping
-│   ├── gateway.js     # BTL client: tagMessage(), embed(), reflect()
-│   ├── prompts.js     # all prompt text lives here
-│   └── store.js       # in-memory store + JSON persistence + thread finding
-└── frontend/
-    └── src/
-        ├── App.jsx
-        ├── ChatFeed.jsx      # input + message feed with tag chips
-        ├── ReflectPanel.jsx  # Reflect button + streaming output
-        └── CostBar.jsx       # cheap-vs-strong spend display
-```
+- **Catch the words** — every message is tagged by the cheap model (topic, mood, commitment detection). No configuration; promises are detected from how you naturally write.
+- **Watch the follow-through** — a detected promise opens a ledger entry. When a later message reports actually doing it, a cheap-model check flips it to **kept** — live, in front of you. Promises with no follow-through drift.
+- **Prove everything** — reflections are structured claims, each carrying the ids of the messages it rests on. Tap any claim → the exact quotes with dates fold out. Receipts, never vibes.
+- **Hear the silences** — threads that were active and went quiet get flagged, so the reflection can ask the question a good friend would.
+- **Notice the change** — each reflection receives the previous one, and names one thing that changed and one that didn't.
 
 ## BTL runtime usage
 
-Every LLM call goes through the BTL gateway, and each runtime feature is load-bearing, not decorative:
+Every LLM call goes through the BTL gateway, and each feature is load-bearing:
 
-| BTL runtime feature | Where it lives in Anchor |
+| Runtime feature | Where it lives |
 |---|---|
-| Agents | The decide-what's-signal loop: tagging, thread detection, commitment tracking, reflection synthesis |
-| Retrieval & Memory | The entire product — full-history evidence building per reflection |
-| Embeddings | Thread finding + commitment follow-through matching |
-| Streaming | The live reflection (`/reflect` SSE → ReflectPanel) |
-| Multi-provider routing | Cheap model for constant tagging, strong model for rare synthesis — real cost asymmetry |
-| Usage & Billing | CostBar showing the cheap-vs-strong spend split in dollars |
+| Agents | The signal-vs-noise pipeline: `tagMessage()` → ledger engine (`patterns.js`) → silence detection → reflection synthesis |
+| Retrieval & Memory | The entire product: full-history evidence building (`buildEvidence()`), previous-reflection delta |
+| Embeddings | The gateway's `/v1/embeddings` route was not enabled during the event (confirmed with organizers) — thread grouping (`findThreads()`) and follow-through matching (`checkFollowThrough()`) run on batched cheap-model calls instead, through the same gateway |
+| Streaming | The live reflection: gateway `stream:true` accumulated server-side, streamed to the browser over SSE (`GET /reflect`) |
+| Cost-based model routing | Cheap model always-on (tagging, grouping, yes/no checks) vs. strong model rarely (reflection synthesis) — real cost asymmetry, visible in the app |
+| Usage & Billing | The CostBar: real token counts per tier from the gateway's `usage` field (`GET /stats`), strong-tier streaming costs estimated and labeled |
 
-## Run locally
+## Run it locally
 
-*(Coming with the build — target: clone, add your gateway key to `backend/.env`, and start in 3 commands.)*
+```bash
+# 1. clone and configure
+git clone https://github.com/Ejirowebfi/Anchor.git && cd Anchor
+cp backend/.env.example backend/.env   # add your BTL gateway key
+
+# 2. backend
+cd backend && npm install && npm start
+
+# 3. frontend (new terminal)
+cd frontend && npm install && npm run dev   # open http://localhost:5173
+```
+
+Optional: `node backend/seed.js` loads a demo journal; `node backend/rebuild-ledger.js` builds the ledger from it.
 
 ## What's next
 
-Deferred, in order, only if time allows:
-
-1. **Cited reflections** — each claim links to the exact source messages with dates
-2. **Commitment ledger panel** — "Made: 9 · Kept: 3"
-3. **Time-decay weighting** — stale threads fade, so absences can be noticed too
+- **Shared commitments** — the flagship idea: two people see each other's ledgers; accountability with receipts.
+- `/search` — "when did I last feel like this?" over the full history.
+- Time-decay weighting, deployment, and a commitment-ledger export.
 
 ---
 
