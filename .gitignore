@@ -18,3 +18,4 @@ Screenshot*.png
 backend/data.json
 backend/stats.json
 backend/ledger.json
+backend/last-reflection.json

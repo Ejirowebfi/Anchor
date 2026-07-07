@@ -4,7 +4,7 @@ import cors from "cors";
 import { tagMessage, buildEvidence, reflectStream, evidenceToText, checkFollowThrough } from "./gateway.js";
 import { addMessage, getAll } from "./store.js";
 import { getStats, recordStrong } from "./stats.js";
-import { addCommitment, openEntries, markKept, getLedger } from "./patterns.js";
+import { addCommitment, openEntries, markKept, getLedger, saveReflection } from "./patterns.js";
 
 const app = express();
 app.use(cors());
@@ -78,6 +78,7 @@ app.get("/reflect", async (req, res) => {
       console.error("reflection JSON fallback:", err.message, "| raw head:", raw.slice(0, 120));
       reflection = { sections: [{ claim: raw.trim(), evidence_ids: [] }], suggestion: null, question: null, honesty_note: null };
     }
+    saveReflection(reflection);
     send({ reflection });
     send({ done: true });
     res.end();

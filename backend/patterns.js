@@ -87,3 +87,22 @@ export function findSilences(threads) {
     })
     .filter((s) => s.days_quiet >= SILENCE_DAYS);
 }
+
+// Previous-reflection persistence (v2 delta): the reflector receives the last
+// reflection so it can note what changed and what didn't.
+const REFLECTION_FILE = path.join(path.dirname(fileURLToPath(import.meta.url)), "last-reflection.json");
+
+export function getPreviousReflection() {
+  try {
+    return JSON.parse(fs.readFileSync(REFLECTION_FILE, "utf8"));
+  } catch {
+    return null;
+  }
+}
+
+export function saveReflection(reflection) {
+  fs.writeFileSync(
+    REFLECTION_FILE,
+    JSON.stringify({ at: new Date().toISOString(), ...reflection }, null, 2)
+  );
+}

@@ -26,7 +26,7 @@
 
 import OpenAI from "openai";
 import { recordCheap } from "./stats.js";
-import { getLedger, findSilences } from "./patterns.js";
+import { getLedger, findSilences, getPreviousReflection } from "./patterns.js";
 import {
   TAGGER_SYSTEM_PROMPT,
   THREAD_FINDER_SYSTEM_PROMPT,
@@ -183,6 +183,7 @@ export async function buildEvidence(messages) {
   return {
     threads: threadRes.threads,
     silences: findSilences(threadRes.threads),
+    previous: getPreviousReflection(),
     ledger: { said, did, entries: ledgerEntries },
     byId,
     moods,
@@ -220,6 +221,11 @@ export function evidenceToText(ev) {
     .map(([m, n]) => `${m} x${n}`)
     .join(", ");
   lines.push("", `MOOD TALLY: ${tally}`);
+  if (ev.previous) {
+    lines.push("", `PREVIOUS REFLECTION (${ev.previous.at?.slice(0, 10)}):`);
+    for (const s of ev.previous.sections || []) lines.push(`- ${s.claim}`);
+    if (ev.previous.suggestion) lines.push(`- (suggested then: ${ev.previous.suggestion})`);
+  }
   return lines.join("\n");
 }
 
